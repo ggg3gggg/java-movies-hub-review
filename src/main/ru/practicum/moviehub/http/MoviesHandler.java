@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import ru.practicum.moviehub.api.ErrorResponse;
 
 public class MoviesHandler extends BaseHttpHandler {
 
@@ -117,13 +118,7 @@ public class MoviesHandler extends BaseHttpHandler {
             String error,
             List<String> details
     ) throws IOException {
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("error", error);
-
-        if (details != null) {
-            response.put("details", details);
-        }
-
+        ErrorResponse response = new ErrorResponse(error, details);
         sendJson(ex, status, gson.toJson(response));
     }
 
