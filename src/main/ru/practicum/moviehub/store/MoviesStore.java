@@ -2,9 +2,7 @@ package ru.practicum.moviehub.store;
 
 import ru.practicum.moviehub.model.Movie;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class MoviesStore {
     private final Map<Integer, Movie> movies = new HashMap<>();
@@ -31,5 +29,17 @@ public class MoviesStore {
     public void clear() {
         movies.clear();
         nextId = 1;
+    }
+
+    public List<Movie> findByYear(int year) {
+        List<Movie> result = new ArrayList<>();
+
+        for (Movie movie : movies.values()) {
+            if (movie.getYear() == year) {
+                result.add(movie);
+            }
+        }
+
+        return result;
     }
 }

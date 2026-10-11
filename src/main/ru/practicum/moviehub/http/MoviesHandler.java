@@ -11,59 +11,63 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Year;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import ru.practicum.moviehub.api.ErrorResponse;
 
 public class MoviesHandler extends BaseHttpHandler {
 
     private final MoviesStore moviesStore;
-    private final Gson gson = new Gson();
+    private final Gson gson;
+    private static final String APPLICATION_JSON = "application/json";
+    private static final String CONTENT_TYPE_HEADER = "Content-Type";
 
     public MoviesHandler(MoviesStore moviesStore) {
         this.moviesStore = moviesStore;
+        this.gson = new Gson();
     }
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        String method = ex.getRequestMethod();
+        String method = ex.getRequestMethod().toUpperCase(Locale.ROOT);
         String path = ex.getRequestURI().getPath();
 
-        if (method.equalsIgnoreCase("GET")) {
-            if (path.equals("/movies")) {
-                handleGetMovies(ex);
-            } else if (path.startsWith("/movies/")) {
-                String id = path.substring("/movies/".length());
-                handleGetById(ex, id);
-            } else {
-                sendError(ex, 404, "Ресурс не найден", null);
+        switch (method) {
+            case "GET" -> {
+                if (path.equals("/movies")) {
+                    handleGetMovies(ex);
+                } else if (path.startsWith("/movies/")) {
+                    String id = path.substring("/movies/".length());
+                    handleGetById(ex, id);
+                } else {
+                    sendError(ex, 404, "Ресурс не найден", null);
+                }
             }
-        } else if (method.equalsIgnoreCase("POST")) {
-            if (path.equals("/movies")) {
-                handlePost(ex);
-            } else {
-                sendError(ex, 404, "Ресурс не найден", null);
+            case "POST" -> {
+                if (path.equals("/movies")) {
+                    handlePost(ex);
+                } else {
+                    sendError(ex, 404, "Ресурс не найден", null);
+                }
             }
-        } else if (method.equalsIgnoreCase("DELETE")) {
-            if (path.startsWith("/movies/")) {
-                String id = path.substring("/movies/".length());
-                handleDelete(ex, id);
-            } else {
-                sendError(ex, 405, "Метод не поддерживается", null);
+            case "DELETE" -> {
+                if (path.startsWith("/movies/")) {
+                    String id = path.substring("/movies/".length());
+                    handleDelete(ex, id);
+                } else {
+                    sendError(ex, 405, "Метод не поддерживается", null);
+                }
             }
-        } else {
-            sendError(ex, 405, "Метод не поддерживается", null);
+            default -> sendError(ex, 405, "Метод не поддерживается", null);
         }
     }
 
     private void handlePost(HttpExchange ex) throws IOException {
-        String contentType = ex.getRequestHeaders().getFirst("Content-Type");
+        String contentType = ex.getRequestHeaders().getFirst(CONTENT_TYPE_HEADER);
 
         if (contentType == null
                 || !contentType.split(";")[0].trim()
-                .equalsIgnoreCase("application/json")) {
+                .equalsIgnoreCase(APPLICATION_JSON)) {
             sendError(ex, 415, "Ожидается Content-Type application/json", null);
             return;
         }
@@ -89,18 +93,25 @@ public class MoviesHandler extends BaseHttpHandler {
 
         List<String> details = new ArrayList<>();
 
-        if (request.title == null || request.title.isBlank()) {
-            details.add("Название фильма не должно быть пустым");
-        } else if (request.title.length() > 100) {
-            details.add("Название фильма не должно превышать 100 символов");
+        String title = request.getTitle();
+
+        if (title == null || title.isBlank() || title.length() > 100) {
+            details.add(title == null || title.isBlank()
+                    ? "Название фильма не должно быть пустым"
+                    : "Название фильма не должно превышать 100 символов");
         }
 
         int currentYear = Year.now().getValue();
 
-        if (request.year == null) {
-            details.add("Не указан год выпуска");
-        } else if (request.year < 1888 || request.year > currentYear + 1) {
-            details.add("Год выпуска должен быть от 1888 до " + (currentYear + 1));
+        if (request.getYear() == null
+                || request.getYear() < 1888
+                || request.getYear() > currentYear + 1) {
+
+            String yearError = request.getYear() == null
+                    ? "Не указан год выпуска"
+                    : "Год выпуска должен быть от 1888 до " + (currentYear + 1);
+
+            details.add(yearError);
         }
 
         if (!details.isEmpty()) {
@@ -108,7 +119,7 @@ public class MoviesHandler extends BaseHttpHandler {
             return;
         }
 
-        Movie movie = moviesStore.add(request.title, request.year);
+        Movie movie = moviesStore.add(request.getTitle(), request.getYear());
         sendJson(ex, 201, gson.toJson(movie));
     }
 
@@ -121,12 +132,6 @@ public class MoviesHandler extends BaseHttpHandler {
         ErrorResponse response = new ErrorResponse(error, details);
         sendJson(ex, status, gson.toJson(response));
     }
-
-    private static class NewMovieRequest {
-        String title;
-        Integer year;
-    }
-
 
     private void handleGetMovies(HttpExchange ex) throws IOException {
         String query = ex.getRequestURI().getRawQuery();
@@ -160,15 +165,7 @@ public class MoviesHandler extends BaseHttpHandler {
             return;
         }
 
-        List<Movie> filteredMovies = new ArrayList<>();
-
-        for (Movie movie : moviesStore.findAll()) {
-            if (movie.getYear() == year) {
-                filteredMovies.add(movie);
-            }
-        }
-
-        sendJson(ex, 200, gson.toJson(filteredMovies));
+        sendJson(ex, 200, gson.toJson(moviesStore.findByYear(year)));
     }
 
     private void handleGetById(HttpExchange ex, String idValue)
