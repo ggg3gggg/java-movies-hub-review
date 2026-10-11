@@ -7,9 +7,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-import ru.practicum.moviehub.store.MoviesStore;
-import com.google.gson.Gson;
-
 public abstract class BaseHttpHandler implements HttpHandler {
     protected static final String CT_JSON = "application/json; charset=UTF-8";
 
